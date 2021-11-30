@@ -1,8 +1,8 @@
 package player.domain
 
-import card.domain.CardDeck
+import card.domain.Card
 
-final class Player (
-  val username: Username,
-  val cardDeck: CardDeck
+final case class Player (
+  username: Username,
+  cardDeck: List[Card]
 )

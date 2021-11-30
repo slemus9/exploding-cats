@@ -1,3 +1,3 @@
 package card.domain
 
-final class CardDeck (val cards: List[Card])
+final case class CardDeck (cards: List[Card])

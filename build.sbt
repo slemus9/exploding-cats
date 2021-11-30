@@ -9,5 +9,6 @@ val catsEffectsVersion = "3.2.9"
 
 libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-core" % catsVersion,
+  "org.typelevel" %% "cats-collections-core" % "0.9.0",
   "org.typelevel" %% "cats-effect" % catsEffectsVersion
 )

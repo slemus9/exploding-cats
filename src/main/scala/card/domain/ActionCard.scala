@@ -1,14 +1,22 @@
 package card.domain
 
-import game.domain.GameState
+sealed trait ActionCard {
 
-trait ActionCard {
+  // val instructions: String
 
-  def action (gameState: GameState): GameState
+  // def action: Unit
 }
 
-object CardAction {
+final case object Nope extends Card with ActionCard
 
-  val inaction: ActionCard = identity
+final case object Skip extends Card with ActionCard
 
-}
+final case object Favor extends Card with ActionCard
+
+final case object Shuffle extends Card with ActionCard
+
+final case object SeeTheFuture extends Card with ActionCard
+
+final case object Attack extends Card with ActionCard
+
+final case object Defuse extends Card with ActionCard

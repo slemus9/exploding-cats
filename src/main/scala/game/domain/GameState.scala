@@ -1,12 +1,10 @@
 package game.domain
 
-import card.domain.CardPile
 import player.domain.Player
-import player.domain.PlayerSeq
+import card.domain.Card
 
-trait GameState {
-
-  val drawPile: CardPile
-  val discardPile: CardPile
-  val players: PlayerSeq
-}
+final case class GameState (
+  players: List[Player],
+  drawPile: List[Card],
+  discardPile: List[Card]
+)
