@@ -1,36 +1,33 @@
 package player.domain
 
 import cats.collections.Dequeue
+import error.{GameError, NoActivePlayers}
 
-sealed abstract case class PlayerSeq private (
-  private val players: Dequeue[Player]
-) {
+final case class PlayerSeq private (
+  private val players: Dequeue[Username]
+) extends AnyVal {
 
   def size = players.size
 
-  def currentPlayer = players.frontOption
+  def currentPlayer: Either[GameError, Username] = 
+    players.frontOption.toRight(NoActivePlayers)
   
-  def moveForward = players.uncons.map {
+  def moveForward: Either[GameError, PlayerSeq] = players.uncons.map {
     case (p, ps) => PlayerSeq(ps :+ p)
-  }
+  }.toRight(NoActivePlayers)
 
-  def moveBackwards = players.unsnoc.map {
+  def moveBackwards: Either[GameError, PlayerSeq] = players.unsnoc.map {
     case (p, ps) => PlayerSeq(p +: ps)
-  }
+  }.toRight(NoActivePlayers)
 
-  def eliminateCurrentPlayer = players.uncons.map(_._2)
+  def eliminateCurrentPlayer: Either[GameError, PlayerSeq] = 
+    players.uncons
+      .map { case (_, dq) => PlayerSeq(dq) }
+      .toRight(NoActivePlayers)
 }
 
 object PlayerSeq {
 
-  sealed trait PlayerSeqError
-  final case object NotEnoughPlayers extends PlayerSeqError
-
-  private def apply (d: Dequeue[Player]) = new PlayerSeq(d) {}
-
-  def fromList (players: List[Player]): Either[PlayerSeqError, PlayerSeq] = Either.cond(
-    players.length > 1,
-    PlayerSeq(Dequeue.fromFoldable(players)),
-    NotEnoughPlayers
-  )
+  def from (players: List[Username]) = 
+    PlayerSeq(Dequeue.fromFoldable(players))
 }

@@ -2,9 +2,13 @@ package game.gamebuilders
 
 import card.domain.Card
 import player.domain.Username
-import game.domain.GameState
+import game.domain.Game
+import error.GameError
 
 trait GameBuilder {
 
-  def newGame (userNames: List[Username]): Either[GameBuildingError, GameState]
+  val minNumPlayers: Int
+  val maxNumPlayers: Int
+
+  def newGame (usernames: List[Username]): Either[GameError, Game]
 }
