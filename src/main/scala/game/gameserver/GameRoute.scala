@@ -56,11 +56,15 @@ object GameRoute {
     implicit ae: ApplicativeError[F, Throwable]
   ): Pipe[F, WebSocketFrame, Unit] = { in =>
 
+    def withState: Pipe[F, PlayerCommand, (PlayerCommand, GameState)] =
+      _.evalMap { cmd => gameMatch.getState.map(cmd -> _) }
+
     for {
-      u     <- Stream.eval(buildUsername(usernameStr)).debug()
+      u     <- Stream.eval(buildUsername(usernameStr))
       _     <- Stream.eval(gameMatch.addConnection(u, q))
-      unit  <- in.through(filterText).debug()
-        .through(decodeCommands).debug()
+      unit  <- in.through(filterText)
+        .through(decodeCommands)
+        .through(withState)
         .through(gameMatch.processCommands(u))
         .handleError(t => println(t))
     } yield unit
@@ -76,7 +80,6 @@ object GameRoute {
       for {
 
         q <- Queue.synchronous[F, Option[WebSocketFrame]]
-        // _ <- q.offer(Text(Connect.asJson.toString).some)
 
         res <- {
           val send = Stream.fromQueueNoneTerminated(q).handleError { t =>

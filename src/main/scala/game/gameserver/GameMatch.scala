@@ -19,13 +19,15 @@ import player.domain.Player
 
 trait GameMatch [F[_]] {
 
+  def getState: F[GameState]
+
   def addConnection (u: Username, q: GameMatch.Connection[F]) (
     implicit ae: ApplicativeError[F, Throwable]
   ): F[Unit]
 
   def processCommands (u: Username) (
     implicit ae: ApplicativeError[F, Throwable]
-  ): Pipe[F, PlayerCommand, Unit]
+  ): Pipe[F, (PlayerCommand, GameState), Unit]
 }
 object GameMatch {
 
@@ -51,9 +53,9 @@ object GameMatch {
   def create [F[_]: Concurrent] (builder: GameBuilder): F[GameMatch[F]] = 
     emptyMatchState(builder).map { stateRef => new GameMatch[F] {
 
-      private val getConnections = stateRef.get.map(_.connections)
+      private def getConnections = stateRef.get.map(_.connections)
 
-      private val getState = stateRef.get.map(_.gameState)
+      def getState = stateRef.get.map(_.gameState)
 
       private def expectDisconnected (u: Username) (
         implicit ae: ApplicativeError[F, Throwable]
@@ -77,12 +79,6 @@ object GameMatch {
         s.copy(
           connections = s.connections + (u -> q)
         )
-      }
-
-      private def interpretCommands (u: Username): Pipe[F, PlayerCommand, ServerCommand] = { in =>
-        Stream.eval(getState).flatMap { gameState =>
-          in.through(gameState.interpret(u))
-        }
       }
 
       private def updateState (updated: GameState): F[Unit] = 
@@ -128,15 +124,21 @@ object GameMatch {
 
       def processCommands (u: Username) (
         implicit ae: ApplicativeError[F, Throwable]
-      ): Pipe[F, PlayerCommand, Unit] = 
-        _.through(interpretCommands(u)).flatMap {
-          case UpdateState(updated) => Stream.eval(updateState(updated))
-          case SendResponse(res) => Stream.eval(sendResponse(u, res))
-          case Broadcast(message) => broadcast(message)
-          case DealCards(players) => sendResponse(
-            players.map { case Player(u, cardDeck) => u -> PlayerDeck(cardDeck) }
-          )
-          case EndConnection => Stream.eval(endConnection(u))
-        }
+      ): Pipe[F, (PlayerCommand, GameState), Unit] = { in => 
+
+        def interpret (cmd: PlayerCommand, s: GameState) =
+          s.interpret(u, cmd)
+
+        in.flatMap { case (cmd, s) => s.interpret(u, cmd) }.debug()
+          .flatMap {
+            case UpdateState(updated) => Stream.eval(updateState(updated))
+            case SendResponse(res) => Stream.eval(sendResponse(u, res))
+            case Broadcast(message) => broadcast(message)
+            case DealCards(players) => sendResponse(
+              players.map { case Player(u, cardDeck) => u -> PlayerDeck(cardDeck) }
+            )
+            case EndConnection => Stream.eval(endConnection(u))
+          }
+      }
     }}
 }

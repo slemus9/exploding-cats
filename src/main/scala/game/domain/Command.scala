@@ -19,9 +19,16 @@ object Command {
     } }
 
   implicit val decodePlayerCommand: Decoder[PlayerCommand] = Decoder[String].emap {
-    case "Connect" => Right(Connect)
-    case "Ready" => Right(Ready)
-    case other => Left(s"Command '$other' was not expected.")
+    case "Connect"  => Right(Connect)
+    case "Ready"    => Right(Ready)
+    case "DrawCard" => Right(DrawCard)
+    case other      => Left(s"Command '$other' was not expected.")
+  }
+
+  implicit val encodePlayerCommand: Encoder[PlayerCommand] = Encoder[String].contramap[PlayerCommand] {
+    case Connect  => "Connect"
+    case Ready    => "Ready"
+    case DrawCard => "DrawCard"
   }
 
   sealed trait ServerCommand extends Command

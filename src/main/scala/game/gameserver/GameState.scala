@@ -10,27 +10,43 @@ import error.UnexpectedCommand
 import fs2.{Stream, Pipe}
 
 import cats.syntax.option._
+import player.domain.PlayerSeq
+import card.domain.CardPile
+import cats.ApplicativeError
 
 sealed trait GameState {
 
   val reply: String
 
-  def interpret [F[_]] (u: Username): Pipe[F, PlayerCommand, ServerCommand]
+  def interpret [F[_]] (u: Username, cmd: PlayerCommand) (
+    implicit ae: ApplicativeError[F, Throwable]
+  ): Stream[F, ServerCommand]
 }
 object GameState {
 
   def initialState (builder: GameBuilder): GameState =
     WaitPlayers(builder, none, Map.empty)
 
+  def unexpectedError [F[_]] (
+    t: Throwable
+  ) = Stream(SendResponse(UnexpectedError(t)))
+
   def unexpected [F[_]] (
     username: Username, 
     cmd: PlayerCommand, 
     gameState: GameState
-  ): Stream[F, ServerCommand] = Stream(
-    SendResponse(
-      UnexpectedError(UnexpectedCommand(gameState, cmd))
-    )
+  ): Stream[F, ServerCommand] = unexpectedError(
+    UnexpectedCommand(gameState, cmd)
   )
+
+  def sendCurrentPlayer [F[_]] (
+    players: PlayerSeq
+  ) (
+    implicit ae: ApplicativeError[F, Throwable]
+  ): F[ServerCommand] =
+    ae.fromEither(players.currentPlayer.map { u => 
+      Broadcast(Ok(s"It's ${u.username}'s turn!"))  
+    })
 }
 
 final case class WaitPlayers (
@@ -55,68 +71,77 @@ final case class WaitPlayers (
         u.some, 
         playersReady + (u -> false)
       )
-      Stream(
+
+      if (playersReady contains u) Stream(
+        SendResponse(Ok("You are already connected"))
+      ) else Stream(
         SendResponse(Ok(s"Welcome to Exploding Kittens ${u.username}!")),
         UpdateState(updated),
-        Broadcast(Ok(s"Player ${u.username} joined the game"))
+        Broadcast(Ok(s"Player ${u.username} joined the game")),
+        Broadcast(Ok(updated.reply))
       )
     }
 
-  // private def setupGame: GameStateUpdate = {
+  private def setupGame [F[_]] (
+    implicit ae: ApplicativeError[F, Throwable]
+  ): Stream[F, ServerCommand] = {
 
-  //   val players = playersReady.keys.toList
-  //   builder.newGame(players).fold(
-  //     t => GameStateUpdate(End, UnexpectedError(t), none),
-  //     g => GameStateUpdate(SetupGame(g), Ok(), DealCards.some) 
-  //   )
-  // }
+    val players = playersReady.keys.toList
+    builder.newGame(players).fold(
+      t => Stream(SendResponse(
+        UnexpectedError(t)
+      )),
+      g => {
+        
+        val players = PlayerSeq.from(g.players.map(_.username))
+        val cardPile = CardPile(g.drawPile)
+        Stream(
+          Broadcast(Ok("Starting game...")),
+          DealCards(g.players)
+        ) ++ Stream.eval(
+          GameState.sendCurrentPlayer(
+            players
+          )
+        ) ++ Stream(
+          UpdateState(WaitPlayerAction(players, cardPile))
+        )
+      }
+    )
+  }
 
-  private def onReady [F[_]] (u: Username): Stream[F, ServerCommand] = {
+  private def onReady [F[_]] (u: Username) (
+    implicit ae: ApplicativeError[F, Throwable]
+  ): Stream[F, ServerCommand] = 
     playersReady.get(u).map {
       case true => Stream(
         SendResponse(Ok("You are ready"))
       )
       case false => 
-        if (numReady + 1 == currPlayers) ???
-    }
-    ???
-  }
+        if (currPlayers >= minPlayers && numReady + 1 == currPlayers) setupGame
+        else {
 
-  // private def onReady (ready: Ready): GameStateUpdate = {
+          val updated = this.copy(
+            playersReady = playersReady + (u -> true)
+          )
 
-  //   val username = ready.username
-  //   playersReady.get(username).map {
-  //     case true   => GameStateUpdate(this, Ok("You are ready"), none) 
-  //     case false  => 
-  //       if (numReady + 1 == currPlayers) setupGame
-  //       else {
+          Stream(
+            UpdateState(updated),
+            Broadcast(Ok(s"Player ${u.username} is ready!")),
+            Broadcast(Ok(updated.reply))
+          )
+        }
+    } getOrElse GameState.unexpectedError(
+      PlayerNotRegistered(u)
+    )
 
-  //         val updated = this.copy(playersReady = playersReady + (username -> true))
-  //         GameStateUpdate(updated, Ok(), None)
-  //       } 
-  //   } getOrElse GameStateUpdate(
-  //     this,
-  //     UnexpectedError(PlayerNotRegistered(username)),
-  //     none
-  //   )
-  // }
-
-  def interpret [F[_]] (u: Username): Pipe[F, PlayerCommand, ServerCommand] = 
-    _.flatMap {
+  def interpret [F[_]] (u: Username, cmd: PlayerCommand) (
+    implicit ae: ApplicativeError[F, Throwable]
+  ): Stream[F, ServerCommand] = 
+    cmd match {
       case Connect  => onConnect[F](u)
       case Ready    => onReady[F](u)
       case cmd      => GameState.unexpected[F](u, cmd, this)
     }
-
-  // def interpret (cmd: Command): GameStateUpdate = cmd match {
-  //   case c: Connect => onConnect(c)
-  //   case r: Ready   => onReady(r)
-  //   case cmd        => GameStateUpdate(
-  //     this,
-  //     UnexpectedError(UnexpectedCommand(this, cmd)),
-  //     none
-  //   )
-  // }
 
   val reply: String = {
     val readyStr = 
@@ -130,16 +155,32 @@ final case class WaitPlayers (
   }
 }
 
-final case class SetupGame (game: Game) extends GameState {
+final case class WaitPlayerAction (players: PlayerSeq, cardPile: CardPile) extends GameState {
 
-  def interpret [F[_]] (u: Username): Pipe[F, PlayerCommand, ServerCommand] = ???
+  private val currentPlayer = players.currentPlayer
+
+  def onDrawCard [F[_]] (
+    implicit ae: ApplicativeError[F,Throwable]
+  ): Stream[F, ServerCommand] = Stream.eval(
+    ae.fromEither(cardPile.drawTopCard)
+  ).flatMap { case (c, newPile) => Stream(
+    SendResponse(DrawedCard(c)),
+    UpdateState(???)
+  )}
+
+  def interpret [F[_]] (u: Username, cmd: PlayerCommand) (
+    implicit ae: ApplicativeError[F,Throwable]
+  ): Stream[F,ServerCommand] = ???
 
   val reply: String = ???
 }
 
+
 final case object End extends GameState {
 
-  def interpret [F[_]] (u: Username): Pipe[F, PlayerCommand, ServerCommand] = ???
+  def interpret [F[_]] (u: Username, cmd: PlayerCommand) (
+    implicit ae: ApplicativeError[F,Throwable]
+  ): Stream[F,ServerCommand] = ???
 
   val reply: String = ???  
 }

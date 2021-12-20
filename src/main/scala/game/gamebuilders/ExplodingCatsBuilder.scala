@@ -59,7 +59,7 @@ final object ExplodingCatsBuilder extends GameBuilder {
     ) 
     
     val (toDeal, remaining) = cards.splitAt(n * initialCardsPerPlayer)
-    val decks = toDeal.grouped(n)
+    val decks = toDeal.grouped(initialCardsPerPlayer)
     val players = decks.zip(usernames).map {
       case (deck, username) => Player(username, Defuse :: deck)
     }
