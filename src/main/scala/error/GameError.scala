@@ -1,5 +1,10 @@
 package error
 
+import io.circe.DecodingFailure
+import game.gameserver.GameState
+import player.domain.Username
+import game.domain.Command
+
 sealed trait GameError extends Throwable
 
 sealed trait GameBuildingError extends GameError
@@ -32,4 +37,37 @@ final case object CardPileEmpty extends CardPileError {
 final case object InvalidCardPileIndex extends CardPileError {
 
   override def getMessage = "Invalid position for card pile."
+}
+
+sealed trait CommandParsingError extends GameError
+final case object FrameIsNotText extends CommandParsingError {
+
+  override def getMessage = "Server should only receive text"
+}
+final case class InvalidCommandName (name: String) extends CommandParsingError {
+
+  override def getMessage = s"Command '$name' was not expected"
+}
+
+sealed trait GameStateError extends GameError
+final case class UnexpectedCommand (gameState: GameState, cmd: Command) extends GameStateError {
+
+  override def getMessage = s"Command ${cmd.getClass.getName} is not valid at the ${gameState.getClass.getName} stage"
+}
+
+final case class UnexpectedGameState (found: GameState) extends GameStateError {
+
+  override def getMessage = s"Game state is invalid. Found: ${found.getClass.getName}"
+}
+final case object GameAlreadyStarted extends GameStateError {
+
+  override def getMessage = s"This game match has already started"
+}
+final case class PlayerNotRegistered (player: Username) extends GameStateError {
+
+  override def getMessage = s"Player ${player.username} is not registered for this match"
+}
+final case class PlayerAlreadyConnected (player: Username) extends GameStateError {
+
+  override def getMessage = s"Player ${player.username} is already connected in this match"
 }

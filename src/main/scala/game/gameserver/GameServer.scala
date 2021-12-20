@@ -4,25 +4,35 @@ import cats.effect.{ExitCode, IO, IOApp}
 import org.http4s.blaze.server.BlazeServerBuilder
 import scala.concurrent.ExecutionContext
 import org.http4s._
-import org.http4s.dsl.io._
+import org.http4s.server.websocket.WebSocketBuilder2
+import player.domain.Username
+import game.gamebuilders.ExplodingCatsBuilder
+import fs2.concurrent.SignallingRef
+import fs2.concurrent.Signal
+import fs2.Stream
+import cats.effect.Concurrent
+import cats.effect.kernel.Ref
+import cats.Functor
+import game.gamebuilders.GameBuilder
+import cats.effect.kernel.Async
 
 object GameServer extends IOApp {
-  
-  private val explodingCatsRoutes = HttpRoutes.of[IO] {
 
-    case GET -> Root / "exploding-cats" / username => 
-      Ok(s"Welcome to exploding cats $username")
-  }
+  // ws://localhost:9002/exploding-cats
+  private def httpApp [F[_]: Concurrent] (
+    gameState: GameMatch[F]
+  ) = (wsb: WebSocketBuilder2[F]) => 
+    GameRoute.explodingCatsRoute(gameState, wsb).orNotFound
 
-  private def httpApp: HttpApp[IO] = 
-    explodingCatsRoutes.orNotFound
+  def run (args: List[String]): IO[ExitCode] = for {
 
-  def run (args: List[String]): IO[ExitCode] = 
-    BlazeServerBuilder[IO](ExecutionContext.global)
-      .bindHttp(port = 3600, host = "localhost")
-      .withHttpApp(httpApp)
+    gameMatch <- GameMatch.create[IO](ExplodingCatsBuilder)
+
+    _     <- BlazeServerBuilder[IO](ExecutionContext.global)
+      .bindHttp(port = 9002, host = "localhost")
+      .withHttpWebSocketApp(httpApp(gameMatch))
       .serve
       .compile
       .drain
-      .as(ExitCode.Success)
+  } yield ExitCode.Success
 }

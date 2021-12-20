@@ -8,8 +8,9 @@ val circeVersion = "0.14.1"
 val catsVersion = "2.3.0"
 val catsCollectionsVersion = "0.9.0"
 val catsEffectsVersion = "3.2.9"
-val fs2Version = "3.2.0"
-val http4sVersion = "0.23.6"
+// val fs2Version = "3.2.0"
+val http4sVersion = "0.23.7"
+// val http4sVersion = "0.21.22"
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-core" % circeVersion,
@@ -20,7 +21,7 @@ libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-collections-core" % catsCollectionsVersion,
   "org.typelevel" %% "cats-effect" % catsEffectsVersion,
 
-  "co.fs2" %% "fs2-core" % fs2Version,
+  // "co.fs2" %% "fs2-core" % fs2Version,
 
   "org.http4s" %% "http4s-dsl" % http4sVersion,
   "org.http4s" %% "http4s-blaze-server" % http4sVersion,
