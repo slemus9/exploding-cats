@@ -1,9 +1,12 @@
 package game.domain
 
-import card.domain.Card
-import player.domain.Player
+import player.domain.PlayerSeq
+import card.domain.CardPile
+import player.domain.Username
+import card.domain.CardDeck
 
 final case class Game (
-  players: List[Player],
-  drawPile: List[Card],
+  players: PlayerSeq,
+  drawPile: CardPile,
+  cardDecks: Map[Username, CardDeck]
 )

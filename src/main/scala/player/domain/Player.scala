@@ -2,14 +2,10 @@ package player.domain
 
 import card.domain.Card
 import io.circe._, io.circe.generic.semiauto._
+import game.gamebuilders.GameBuilder
+import card.domain.CardDeck
 
-final case class Player (
+final case class Player private (
   username: Username,
-  cardDeck: List[Card]
+  cardDeck: CardDeck
 )
-
-object Player {
-
-  implicit val encodePlayer = deriveEncoder[Player]
-  implicit val decodePlayer = deriveDecoder[Player]
-}

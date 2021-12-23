@@ -1,7 +1,7 @@
 package error
 
 import io.circe.DecodingFailure
-import game.gameserver.GameState
+import game.gamestate.GameState
 import player.domain.Username
 import game.domain.Command
 
@@ -65,9 +65,13 @@ final case object GameAlreadyStarted extends GameStateError {
 }
 final case class PlayerNotRegistered (player: Username) extends GameStateError {
 
-  override def getMessage = s"Player ${player.username} is not registered for this match"
+  override def getMessage = s"Player ${player.name} is not registered for this match"
 }
 final case class PlayerAlreadyConnected (player: Username) extends GameStateError {
 
-  override def getMessage = s"Player ${player.username} is already connected in this match"
+  override def getMessage = s"Player ${player.name} is already connected in this match"
+}
+final case class NotThePlayersTurn (expected: Username, received: Username) extends GameStateError {
+
+  override def getMessage = s"${received.name} it's not your turn. It's ${expected.name}'s turn"
 }

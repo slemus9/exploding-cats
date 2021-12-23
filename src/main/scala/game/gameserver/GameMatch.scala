@@ -5,6 +5,7 @@ import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame._
 import error.{GameError, PlayerNotRegistered, PlayerAlreadyConnected}
 import game.domain.ServerResponse
+import game.gamestate.GameState
 import cats.{ApplicativeError, Functor}
 import cats.effect.Concurrent
 import cats.effect.std.Queue
@@ -135,9 +136,15 @@ object GameMatch {
             case SendResponse(res) => Stream.eval(sendResponse(u, res))
             case Broadcast(message) => broadcast(message)
             case DealCards(players) => sendResponse(
-              players.map { case Player(u, cardDeck) => u -> PlayerDeck(cardDeck) }
+              players.map { case GameBuilder.PlayerSetup(u, cardDeck) => u -> PlayerDeck(cardDeck) }
             )
             case EndConnection => Stream.eval(endConnection(u))
+          }
+          .handleErrorWith { t =>
+            Stream.eval(sendResponse(
+              u,
+              UnexpectedError(t)
+            ))
           }
       }
     }}

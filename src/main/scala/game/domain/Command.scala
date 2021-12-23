@@ -7,8 +7,9 @@ import io.circe.syntax._
 import cats.syntax.option._
 import error.{GameError, InvalidCommandName}
 import io.circe.Encoder
-import game.gameserver.GameState
+import game.gamestate.GameState
 import player.domain.Player
+import game.gamebuilders.GameBuilder
 
 sealed trait Command
 object Command {
@@ -35,7 +36,7 @@ object Command {
   final case class UpdateState (newGameState: GameState) extends ServerCommand
   final case class SendResponse (response: ServerResponse) extends ServerCommand
   final case class Broadcast (message: ServerResponse) extends ServerCommand
-  final case class DealCards (players: List[Player]) extends ServerCommand
+  final case class DealCards (players: List[GameBuilder.PlayerSetup]) extends ServerCommand
   final case object EndConnection extends ServerCommand
 
 

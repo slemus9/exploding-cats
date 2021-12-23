@@ -6,7 +6,7 @@ import io.circe.{Json, Encoder, Decoder}
 import io.circe._, io.circe.generic.semiauto._
 
 
-final case class Username private (val username: String) extends AnyVal
+final case class Username private (val name: String) extends AnyVal
 
 object Username {
 
@@ -16,8 +16,6 @@ object Username {
   private def validateLen (s: String) = {
 
     val n = s.length
-    // if (n >= minLen && n <= maxLen) s.validNec
-    // else InvalidUsernameLength(minLen, maxLen).invalidNec
     Either.cond(
       n >= minLen && n <= maxLen,
       s,
@@ -28,8 +26,6 @@ object Username {
   private def validateCharacters (s: String) = {
 
     val onlyAlphanum = s.forall { c => c.isLetter || c.isDigit }
-    // if (onlyAlphanum) s.validNec
-    // else InvalidUsernameCharacters.invalidNec
     Either.cond(
       onlyAlphanum,
       s,

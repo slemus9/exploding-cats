@@ -13,7 +13,6 @@ object ServerResponse {
     case res: Ok => res.asJson
     case res: UnexpectedError => res.t.getMessage.asJson
     case res: PlayerDeck => res.asJson
-    case res: DrawedCard => res.asJson
     case res: NextCardInPile => res.asJson
     case res: CurrentPlayer => res.asJson
   }
@@ -22,7 +21,6 @@ object ServerResponse {
   final case class Ok (message: String = "OK!") extends ServerResponse
   final case class UnexpectedError (t: Throwable) extends ServerResponse
   final case class PlayerDeck (cards: List[Card]) extends ServerResponse
-  final case class DrawedCard (card: Card) extends ServerResponse
   final case class NextCardInPile (card: Card) extends ServerResponse
   final case class CurrentPlayer (username: Username) extends ServerResponse
 }

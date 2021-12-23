@@ -12,9 +12,10 @@ import card.domain.{
 
 import cats.syntax.all._
 import error.{GameError, PlayersOutOfBounds}
+import cats.data.NonEmptyList
+import error.NoActivePlayers
 
 final object ExplodingCatsBuilder extends GameBuilder {
-
 
   val minNumPlayers = 2
   val maxNumPlayers = 5
@@ -61,16 +62,18 @@ final object ExplodingCatsBuilder extends GameBuilder {
     val (toDeal, remaining) = cards.splitAt(n * initialCardsPerPlayer)
     val decks = toDeal.grouped(initialCardsPerPlayer)
     val players = decks.zip(usernames).map {
-      case (deck, username) => Player(username, Defuse :: deck)
+      case (deck, username) => GameBuilder.PlayerSetup(
+        username, Defuse :: deck 
+      )
     }
 
-    Game(
+    GameBuilder.GameSetup(
       players.toList,
       remaining ++ List.fill(n - 1)(ExplodingCat)
     )
   }
 
-  def newGame(usernames: List[Username]): Either[GameError, Game] = {
+  def newGame(usernames: List[Username]): Either[GameError, GameBuilder.GameSetup] = {
     
     val n = usernames.length
     Either.cond(

@@ -18,6 +18,7 @@ import player.domain.Username
 import fs2.{Stream, Pipe}
 import fs2.concurrent.SignallingRef
 import game.domain.Command._
+import game.gamestate.GameState
 import cats.effect.kernel.Async
 
 object GameRoute {
@@ -45,7 +46,7 @@ object GameRoute {
      ae.fromEither(Username.from(username))
 
   def welcome [F[_]]: Pipe[F, Username, WebSocketFrame] =
-    _.map { u => Text(s"Welcome to Exploding Kittens ${u.username}!") }
+    _.map { u => Text(s"Welcome to Exploding Kittens ${u.name}!") }
   
 
   def processPlayerInput [F[_]] (
