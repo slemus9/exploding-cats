@@ -140,6 +140,7 @@ object GameMatch {
             )
             case EndConnection => Stream.eval(endConnection(u))
           }
+          // .handleError(println)
           .handleErrorWith { t =>
             Stream.eval(sendResponse(
               u,

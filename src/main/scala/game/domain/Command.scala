@@ -1,10 +1,12 @@
 package game.domain
 
-import card.domain.{ActionCard, Nope}
+import card.domain.{Card, ActionCard, Nope}
+import card.domain.ActionCard._
 import player.domain.Username
 import io.circe.{Json, Decoder, HCursor}
 import io.circe.syntax._
 import cats.syntax.option._
+import cats.syntax.functor._
 import error.{GameError, InvalidCommandName}
 import io.circe.Encoder
 import game.gamestate.GameState
@@ -19,12 +21,23 @@ object Command {
       Either.cond(cmdName == name, name, s"Command '$name' was not expected.")  
     } }
 
-  implicit val decodePlayerCommand: Decoder[PlayerCommand] = Decoder[String].emap {
-    case "Connect"  => Right(Connect)
-    case "Ready"    => Right(Ready)
-    case "DrawCard" => Right(DrawCard)
-    case other      => Left(s"Command '$other' was not expected.")
+  private implicit val playCard = new Decoder[PlayCard] {
+
+    def apply (c: HCursor): Decoder.Result[PlayCard] = 
+      c.downField("card")
+        .as[Card with ActionCard]
+        .map(PlayCard)
+
   }
+
+  implicit val decodePlayerCommand: Decoder[PlayerCommand] = 
+    Decoder[PlayCard].widen or 
+    Decoder[String].emap {
+      case "Connect"  => Right(Connect)
+      case "Ready"    => Right(Ready)
+      case "DrawCard" => Right(DrawCard)
+      case other      => Left(s"Command '$other' does not exists.")
+    }
 
   implicit val encodePlayerCommand: Encoder[PlayerCommand] = Encoder[String].contramap[PlayerCommand] {
     case Connect  => "Connect"
