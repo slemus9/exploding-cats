@@ -6,13 +6,14 @@ import game.domain.ServerResponse._
 import game.domain.Game
 import card.domain.{CardPile, Card, Defuse, ExplodingCat}
 import card.domain.ActionCard
-import error.{NotThePlayersTurn, PlayerNotRegistered, PlayerDoesNotHaveCard}
+import error.{NotThePlayersTurn, PlayerNotRegistered, PlayerDoesNotHaveCard, NoActionToInvalidate}
 import cats.ApplicativeError
 import cats.effect.Temporal
 import scala.concurrent.duration._        
 import fs2.Stream
 import fs2.concurrent.Signal
 import fs2.concurrent.SignallingRef
+import card.domain.Nope
 
 final case class WaitPlayerAction (game: Game) extends GameState {
 
@@ -38,22 +39,21 @@ final case class WaitPlayerAction (game: Game) extends GameState {
     if (cardDecks(u) contains Defuse) {
       val deck = cardDecks(u) - Defuse
       val newDecks = cardDecks + (u -> deck)
-      val newPlayers = players.moveForward
       Stream(
-        SendResponse(Ok("You defused the Exploding Cat")),
-        SendResponse(PlayerDeck(deck.toList)),
-        UpdateState(WaitPlayerAction(Game(
-          newPlayers,
+        Broadcast(Ok(s"Player ${u.name} has defused the Exploding Cat")),
+        SendResponse(SendCards(deck.toList)),
+        SendResponse(Ok(
+          s"Select a number from 0 to ${newDrawPile.size - 1} to insert back the Exploding Cat"
+        )),
+        UpdateState(ReinsertExplodingCat(Game(
+          players,
           newDrawPile,
           newDecks
-        ))),
-        GameState.sendCurrentPlayer(
-          newPlayers
-        )
+        )))
       )
     } else Stream.eval(killCurrentPlayer).flatMap { newPlayers =>       
       Stream(
-        SendResponse(Ok("You don't have a Defuse card. You exploded!")),
+        Broadcast(Ok(s"Player ${u.name} exploded!")),
         UpdateState(WaitPlayerAction(game.copy(
           players = newPlayers,
           drawPile = newDrawPile
@@ -71,7 +71,7 @@ final case class WaitPlayerAction (game: Game) extends GameState {
     val newPlayers = players.moveForward
     Stream(
       SendResponse(NextCardInPile(card)),
-      SendResponse(PlayerDeck(deck.toList)),
+      SendResponse(SendCards(deck.toList)),
       UpdateState(WaitPlayerAction(Game(
         newPlayers,
         newDrawPile,
@@ -105,31 +105,55 @@ final case class WaitPlayerAction (game: Game) extends GameState {
   def onPlayCard [F[_]: Temporal] (u: Username, card: Card with ActionCard) (
     implicit ae: ApplicativeError[F,Throwable]
   ): Stream[F, ServerCommand] = 
-    Stream.eval(
-      GameState.validatePlayerInMap(u, cardDecks)
-    ) >> (
-      if (cardDecks(u) contains card) {
+    if (cardDecks(u) contains card) {
 
-        Stream(
-          Broadcast(Ok(s"Player ${u.name} wants to play ${card.name}")),
-          Broadcast(Ok(s"Waiting for a Nope Card (anyone can play it)")),
-          UpdateState(WaitNopeCard(game, card)),
-          StartCountdown(
-            maxWait,
-            SendResponse(Ok("Finished!!!"))
+      Stream(
+        Broadcast(Ok(s"Player ${u.name} wants to play ${card.name}")),
+        Broadcast(Ok(s"Waiting for a Nope Card (anyone can play it)")),
+        UpdateState(WaitNopeCard(game, card)),
+        StartCountdown(
+          maxWait,
+          Stream(
+            Broadcast(Ok(s"Player ${u.name} has played ${card.name}"))
           )
         )
+      )
+    }
+    else GameState.unexpectedError(
+      PlayerDoesNotHaveCard(card)
+    )
+
+  def onNopeCard [F[_]] (u: Username): Stream[F, ServerCommand] = {
+
+    if (!cardDecks(u).contains(Nope)) GameState.unexpectedError(
+      PlayerDoesNotHaveCard(Nope)
+    ) else {
+      if (players.currentPlayer.invalidatedAction.isDefined) {
+
+        ???
       }
       else GameState.unexpectedError(
-        PlayerDoesNotHaveCard(card)
+        NoActionToInvalidate
       )
-    )
+    }
+    ???
+  }
 
   def interpret [F[_]: Temporal] (u: Username, cmd: PlayerCommand) (
     implicit ae: ApplicativeError[F,Throwable]
-  ): Stream[F,ServerCommand] = cmd match {
-    case DrawCard       => onDrawCard(u)
-    case PlayCard(card) => onPlayCard(u, card)
-    case cmd            => GameState.unexpectedCommand[F](u, cmd, this)
+  ): Stream[F,ServerCommand] = {
+
+
+    val resolve = cmd match {
+      case DrawCard         => onDrawCard(u)
+      case PlayCard(card)   => onPlayCard(u, card)
+      case InvalidateAction => onNopeCard(u)
+      case cmd              => GameState.unexpectedCommand[F](u, cmd, this)
+    }
+
+    Stream.eval(
+      GameState.validatePlayerInMap(u, cardDecks)
+    ) >> resolve
   }
+  
 }

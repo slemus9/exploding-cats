@@ -137,9 +137,16 @@ object GameMatch {
       private def setInterruptSignal (b: Boolean) =
         getInterruptSignal.flatMap(_.set(b))
 
+      private def resetInterruptSignal =
+        SignallingRef[F, Boolean](false).flatMap { signal =>
+          stateRef.update {
+            _.copy(interruptCountdown = signal)
+          }  
+        }
+
       private def awaitThenExecute (
         maxWait: FiniteDuration,
-        onFinished: ServerCommand
+        onFinished: Stream[F, ServerCommand]
       ): Stream[F, ServerCommand] = 
         Stream.eval(getInterruptSignal).flatMap { signal => 
           
@@ -152,7 +159,7 @@ object GameMatch {
             .interruptAfter(maxWait) ++
             Stream.eval(signal.get).flatMap { interrupted => 
               if (interrupted) Stream.empty
-              else Stream(onFinished)
+              else onFinished
             }
         }
 
@@ -166,11 +173,11 @@ object GameMatch {
           case SendResponse(res) => Stream.eval(sendResponse(u, res))
           case Broadcast(message) => broadcast(message)
           case DealCards(players) => sendResponse(
-            players.map { case GameBuilder.PlayerSetup(u, cardDeck) => u -> PlayerDeck(cardDeck) }
+            players.map { case GameBuilder.PlayerSetup(u, cardDeck) => u -> SendCards(cardDeck) }
           )
           case StartCountdown(maxWait, onFinished) => awaitThenExecute(maxWait, onFinished).flatMap { cmd => 
             resolve(u, cmd) 
-          } >> Stream.eval(setInterruptSignal(false))
+          } ++ Stream.eval(resetInterruptSignal)
           case InterruptCountdown => Stream.eval(setInterruptSignal(true))
           case EndConnection => Stream.eval(endConnection(u))
         }

@@ -36,28 +36,6 @@ object Card extends{
   }
 }
 
-// object CardTest extends App {
-
-//   import Card._
-//   import io.circe.parser._
-
-//   val cardsJson = cardsByName.values.map(_.asJson)
-//   println(cardsJson)
-//   val cards = cardsJson.map(_.as[Card].map(_.description))
-//   println(cards)
-
-//   val strCard = 
-//     """
-//       |{
-//       |   "name" : "FakeCard",
-//       |   "description" : "You die unless you have a Defuse card."
-//       |}""".stripMargin.trim
-
-//   val cardJson = parse(strCard).getOrElse(Json.Null)
-
-//   println(cardJson.as[Card])
-// }
-
 final case object CatCard1 extends Card {
 
   val name = "CatCard1"
@@ -92,4 +70,16 @@ final case object ExplodingCat extends Card {
 
   val name = "ExplodingCat"
   val description = "You die unless you have a Defuse card."
+}
+
+final case object Defuse extends Card {
+
+  val name = "Defuse"
+  val description = "Place the Exploding Cat card anywhere in the draw pile."
+}
+
+final case object Nope extends Card {
+
+  val name = "Nope"
+  val description = "Invalidate the action of another player. Play this card any time."
 }

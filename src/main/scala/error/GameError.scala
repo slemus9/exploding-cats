@@ -55,14 +55,9 @@ final case class UnexpectedCommand (gameState: GameState, cmd: Command) extends 
 
   override def getMessage = s"Command ${cmd.getClass.getName} is not valid at the ${gameState.getClass.getName} stage"
 }
-
 final case class UnexpectedGameState (found: GameState) extends GameStateError {
 
   override def getMessage = s"Game state is invalid. Found: ${found.getClass.getName}"
-}
-final case object GameAlreadyStarted extends GameStateError {
-
-  override def getMessage = s"This game match has already started"
 }
 final case class PlayerNotRegistered (player: Username) extends GameStateError {
 
@@ -79,4 +74,8 @@ final case class NotThePlayersTurn (expected: Username, received: Username) exte
 final case class PlayerDoesNotHaveCard (expectedCard: Card) extends GameStateError {
 
   override def getMessage = s"You don't have an $expectedCard card"
+}
+final case object NoActionToInvalidate extends GameStateError {
+
+  override def getMessage = "There is no action to invalidate"
 }

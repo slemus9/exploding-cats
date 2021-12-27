@@ -22,39 +22,40 @@ final case class WaitNopeCard (
 
   private val Game(players, drawPile, cardDecks) = game
 
-  private def onInvalidateAction [F[_]: Temporal] (u: Username): Stream[F, ServerCommand] = {
-
-    Stream.eval(
-      GameState.validatePlayerInMap(u, cardDecks)
-    ) >> (
-      if (!cardDecks(u).contains(Nope)) GameState.unexpectedError(
-        PlayerDoesNotHaveCard(Nope)
-      )
-      else {
-        
-        val deck = cardDecks(u) - Nope
-        val newDecks = cardDecks + (u -> deck)
-        val newPlayers = players
-          .updateCurrentPlayer(_.copy(
-            invalidatedAction = actionToInvalidate.some
-          ))
-
-        Stream(
-          InterruptCountdown,
-          Broadcast(Ok(s"Player ${u.name} used a Nope card")),
-          GameState.sendCurrentPlayer(newPlayers),
-          UpdateState(WaitPlayerAction(
-            Game(newPlayers, drawPile, newDecks)
-          ))
-        )
-      }
+  private def onNopeCard [F[_]: Temporal] (u: Username): Stream[F, ServerCommand] = 
+    if (!cardDecks(u).contains(Nope)) GameState.unexpectedError(
+      PlayerDoesNotHaveCard(Nope)
     )
-  }
+    else {
+      
+      val deck = cardDecks(u) - Nope
+      val newDecks = cardDecks + (u -> deck)
+      val newPlayers = players
+        .updateCurrentPlayer(_.copy(
+          invalidatedAction = actionToInvalidate.some
+        ))
+
+      Stream(
+        InterruptCountdown,
+        Broadcast(Ok(s"Player ${u.name} used a Nope card")),
+        GameState.sendCurrentPlayer(newPlayers),
+        UpdateState(WaitPlayerAction(
+          Game(newPlayers, drawPile, newDecks)
+        ))
+      )
+    }
 
   def interpret [F[_]: Temporal] (u: Username, cmd: PlayerCommand) (
     implicit ae: ApplicativeError[F,Throwable]
-  ): Stream[F,Command.ServerCommand] = cmd match {
-    case InvalidateAction => onInvalidateAction[F](u)
-    case cmd              => GameState.unexpectedCommand[F](u, cmd, this)
-  }
+  ): Stream[F,Command.ServerCommand] = {
+  
+    val resolve = cmd match {
+      case InvalidateAction => onNopeCard[F](u)
+      case cmd              => GameState.unexpectedCommand[F](u, cmd, this)
+    }
+
+    Stream.eval(
+      GameState.validatePlayerInMap(u, cardDecks)
+    ) >> resolve
+  } 
 }

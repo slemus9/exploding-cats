@@ -13,6 +13,7 @@ import game.gamestate.GameState
 import player.domain.Player
 import game.gamebuilders.GameBuilder
 import scala.concurrent.duration.FiniteDuration
+import fs2.{Stream, Pure}
 
 sealed trait Command
 object Command {
@@ -31,9 +32,15 @@ object Command {
 
   }
 
-  implicit val decodePlayerCommand: Decoder[PlayerCommand] = 
-    Decoder[PlayCard].widen or 
-    Decoder[String].emap {
+  private implicit val reinsertExplodingCat = new Decoder[InsertExplodingCat] {
+
+    def apply(c: HCursor): Decoder.Result[InsertExplodingCat] = 
+      c.downField("index")
+        .as[Int]
+        .map(InsertExplodingCat)
+  }
+
+  private val constantDecoder: Decoder[PlayerCommand] = Decoder[String].emap {
       case "Connect"  => Right(Connect)
       case "Ready"    => Right(Ready)
       case "DrawCard" => Right(DrawCard)
@@ -41,53 +48,34 @@ object Command {
       case other      => Left(s"Command '$other' does not exists.")
     }
 
-  implicit val encodePlayerCommand: Encoder[PlayerCommand] = Encoder[String].contramap[PlayerCommand] {
-    case Connect  => "Connect"
-    case Ready    => "Ready"
-    case DrawCard => "DrawCard"
-  }
+  implicit val decodePlayerCommand: Decoder[PlayerCommand] = List(
+    Decoder[PlayCard].widen[PlayerCommand],
+    Decoder[InsertExplodingCat].widen[PlayerCommand],
+    constantDecoder
+  ).reduce(_ or _)
 
   sealed trait ServerCommand extends Command
   final case class UpdateState (newGameState: GameState) extends ServerCommand
   final case class SendResponse (response: ServerResponse) extends ServerCommand
   final case class Broadcast (message: ServerResponse) extends ServerCommand
   final case class DealCards (players: List[GameBuilder.PlayerSetup]) extends ServerCommand
-  final case class StartCountdown (maxWait: FiniteDuration, onFinished: ServerCommand) extends ServerCommand
+  final case class StartCountdown (maxWait: FiniteDuration, onFinished: Stream[Pure, ServerCommand]) extends ServerCommand
   final case object InterruptCountdown extends ServerCommand
   final case object EndConnection extends ServerCommand
 
-
-
   sealed trait PlayerCommand extends Command
-  final case object Connect extends PlayerCommand {
-
-    val name = "Connect"
-  }
+  final case object Connect extends PlayerCommand
 
   final case object Ready extends PlayerCommand
 
-  final case object InvalidateAction extends PlayerCommand {
-
-    val name = "InvalidateAction"
-  }
+  final case object InvalidateAction extends PlayerCommand
 
   sealed trait PlayerActionCommand extends PlayerCommand
-  final case object DrawCard extends PlayerActionCommand {
-
-    val name = "DrawCard"
-  }
-  final case class PlayCard (card: Card with ActionCard) extends PlayerActionCommand {
-
-    val name = "PlayCard"
-  }
+  final case object DrawCard extends PlayerActionCommand 
+  final case class PlayCard (card: Card with ActionCard) extends PlayerActionCommand
+  final case class InsertExplodingCat (index: Int) extends PlayerActionCommand
 
   sealed trait PlayerLifeOrDeathCommand extends PlayerCommand
-  final case object Explode extends PlayerLifeOrDeathCommand {
-
-    val name = "Explode"
-  }
-  final case object Defused extends PlayerLifeOrDeathCommand {
-
-    val name = "Defused"
-  }
+  final case object Explode extends PlayerLifeOrDeathCommand 
+  final case object Defused extends PlayerLifeOrDeathCommand
 }
