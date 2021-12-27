@@ -20,6 +20,8 @@ final case class CardPile private (
     Random.shuffle(cards)
   )
 
+  def viewTop (n: Int) = cards.take(n)
+
   private def insertAt (index: Int) = { card: ExplodingCat.type => 
     val (front, back) = cards.splitAt(index)
     CardPile(front ++ (card :: back))

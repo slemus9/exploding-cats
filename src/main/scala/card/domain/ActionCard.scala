@@ -4,7 +4,10 @@ import io.circe.{Decoder, HCursor}
 import fs2.Stream
 import game.domain.Game
 import game.domain.Command._
+import game.domain.ServerResponse._
 import game.gamestate.WaitPlayerAction
+import game.domain.ServerResponse
+import game.gamestate.SelectPlayer
 
 sealed trait ActionCard {
 
@@ -34,12 +37,15 @@ final case object Skip extends Card with ActionCard {
   val name = "Skip"
   val description = "End your turn without drawing a card."
 
-  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = 
-    Stream(UpdateState(
-      WaitPlayerAction(game.copy(
-        players = game.players.moveForward
-      ))
-    ))
+  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = {
+    val newPlayers = game.players.moveForward
+    Stream(
+      UpdateState(WaitPlayerAction(
+        game.copy(players = newPlayers)
+      )),
+      SendResponse(CurrentPlayer(newPlayers))
+    )
+  } 
 }
 
 final case object Favor extends Card with ActionCard {
@@ -47,7 +53,13 @@ final case object Favor extends Card with ActionCard {
   val name = "Favor"
   val description = "Force any player to give you a card of their choosing from their hand."
 
-  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = ???
+  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = Stream(
+    SendResponse(Ok("Type the name of another player to steal their card")),
+    UpdateState(SelectPlayer(
+      game.players.currentPlayer.username,
+      game
+    ))
+  )
 }
 
 final case object Shuffle extends Card with ActionCard {
@@ -55,12 +67,14 @@ final case object Shuffle extends Card with ActionCard {
   val name = "Shuffle"
   val description = "Randomly shuffle the draw pile."
 
-  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = 
-    Stream(UpdateState(
-      WaitPlayerAction(game.copy(
-        drawPile = game.drawPile.shuffle
-      ))
+  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = Stream(
+    UpdateState(WaitPlayerAction(
+      game.copy(drawPile = game.drawPile.shuffle)
+    )),
+    SendResponse(CurrentPlayer(
+      game.players
     ))
+  )
 }
 
 final case object SeeTheFuture extends Card with ActionCard {
@@ -68,7 +82,15 @@ final case object SeeTheFuture extends Card with ActionCard {
   val name = "SeeTheFuture"
   val description = "View the top three cards of the draw pile privately."
 
-  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = ???
+  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = Stream(
+    SendResponse(SendCards(
+      game.drawPile.viewTop(3)
+    )),
+    UpdateState(WaitPlayerAction(game)),
+    SendResponse(CurrentPlayer(
+      game.players
+    ))
+  )
 }
 
 final case object Attack extends Card with ActionCard {
@@ -76,12 +98,15 @@ final case object Attack extends Card with ActionCard {
   val name = "Attack"
   val description = "End your turn without drawing a card. The next player has to take two turns."
 
-  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = 
-    Stream(UpdateState(
-      WaitPlayerAction(game.copy(
-        players = game.players.moveForward.updateCurrentPlayer(
-          _.copy(numTurns = 2)
-        )
-      ))
-    ))
+  def execute [F[_]] (game: Game): Stream[F,ServerCommand] = {
+    val newPlayers = game.players.moveForward.updateCurrentPlayer(
+      _.copy(numTurns = 2)
+    )
+    Stream(
+      UpdateState(WaitPlayerAction(
+        game.copy(players = newPlayers)
+      )),
+      SendResponse(CurrentPlayer(newPlayers))
+    )
+  }
 }

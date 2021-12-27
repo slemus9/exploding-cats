@@ -38,7 +38,7 @@ final case class WaitNopeCard (
       Stream(
         InterruptCountdown,
         Broadcast(Ok(s"Player ${u.name} used a Nope card")),
-        GameState.sendCurrentPlayer(newPlayers),
+        SendResponse(CurrentPlayer(newPlayers)),
         UpdateState(WaitPlayerAction(
           Game(newPlayers, drawPile, newDecks)
         ))
@@ -51,11 +51,11 @@ final case class WaitNopeCard (
   
     val resolve = cmd match {
       case InvalidateAction => onNopeCard[F](u)
-      case cmd              => GameState.unexpectedCommand[F](u, cmd, this)
+      case cmd              => GameState.unexpectedCommand(u, cmd, this)
     }
 
     Stream.eval(
-      GameState.validatePlayerInMap(u, cardDecks)
+      game.validatePlayerRegistration(u)
     ) >> resolve
   } 
 }

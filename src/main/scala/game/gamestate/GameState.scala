@@ -32,7 +32,7 @@ object GameState {
 
   private[gamestate] def unexpectedError [F[_]] (
     t: Throwable
-  ) = Stream(SendResponse(UnexpectedError(t)))
+  ): Stream[F, ServerCommand] = Stream(SendResponse(UnexpectedError(t)))
 
   private[gamestate] def unexpectedCommand [F[_]] (
     username: Username, 
@@ -41,16 +41,4 @@ object GameState {
   ): Stream[F, ServerCommand] = unexpectedError(
     UnexpectedCommand(gameState, cmd)
   )
-
-  private[gamestate] def validatePlayerInMap [F[_]] (
-    u: Username, 
-    cardDecks: Map[Username, CardDeck]
-  ) (
-    implicit ae: ApplicativeError[F,Throwable]
-  ) = ae.raiseUnless(cardDecks contains u)(
-    PlayerNotRegistered(u)
-  )
-
-  private[gamestate] def sendCurrentPlayer (players: PlayerSeq) =
-    Broadcast(Ok(s"It's ${players.currentPlayer.username.name}'s turn!"))
 }

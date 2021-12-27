@@ -3,7 +3,7 @@ package card.domain
 import cats.data.NonEmptyList
 
 final case class CardDeck private (
-  cards: Map[Card, Int]
+  private val cards: Map[Card, Int]
 ) {
 
   def + (c: Card) = CardDeck(

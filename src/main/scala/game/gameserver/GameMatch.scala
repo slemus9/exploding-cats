@@ -171,6 +171,7 @@ object GameMatch {
         cmd match {
           case UpdateState(updated) => Stream.eval(updateState(updated))
           case SendResponse(res) => Stream.eval(sendResponse(u, res))
+          case SendResponseTo(recipient, res) => Stream.eval(sendResponse(recipient, res))
           case Broadcast(message) => broadcast(message)
           case DealCards(players) => sendResponse(
             players.map { case GameBuilder.PlayerSetup(u, cardDeck) => u -> SendCards(cardDeck) }

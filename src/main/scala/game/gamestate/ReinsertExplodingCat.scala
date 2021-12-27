@@ -17,7 +17,7 @@ final case class ReinsertExplodingCat (
 
   private def onReinsert [F[_]] (u: Username, index: Int): Stream[F, ServerCommand] = {
     
-    val newPlayers = players.moveBackwards
+    val newPlayers = players.moveForward
     drawPile.insertExplodingCat(index)(ExplodingCat).fold(
       GameState.unexpectedError(_),      
       newDrawPile => Stream(
@@ -27,17 +27,15 @@ final case class ReinsertExplodingCat (
           newDrawPile,
           cardDecks
         ))),
-        GameState.sendCurrentPlayer(
-          newPlayers
-        )
+        SendResponse(CurrentPlayer(newPlayers))
       )  
     )
   }
 
   def interpret [F[_]: Temporal] (u: Username, cmd: PlayerCommand) (
     implicit ae: ApplicativeError[F,Throwable]
-  ): fs2.Stream[F, ServerCommand] = cmd match {
+  ): Stream[F, ServerCommand] = cmd match {
     case InsertExplodingCat(index) => onReinsert(u, index)
-    case cmd                       => GameState.unexpectedCommand[F](u, cmd, this)
+    case cmd                       => GameState.unexpectedCommand(u, cmd, this)
   }
 }

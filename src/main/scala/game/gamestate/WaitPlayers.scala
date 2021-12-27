@@ -73,7 +73,7 @@ final case class WaitPlayers (
         ).flatMap { playerSeq => 
             val game = Game(playerSeq, drawPile, cardDecks)
             Stream(
-              GameState.sendCurrentPlayer(playerSeq),
+              SendResponse(CurrentPlayer(playerSeq)),
               UpdateState(WaitPlayerAction(game))
             )
         }
@@ -112,7 +112,7 @@ final case class WaitPlayers (
     cmd match {
       case Connect  => onConnect(u)
       case Ready    => onReady(u)
-      case cmd      => GameState.unexpectedCommand[F](u, cmd, this)
+      case cmd      => GameState.unexpectedCommand(u, cmd, this)
     }
 
   val reply: String = {

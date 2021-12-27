@@ -79,3 +79,11 @@ final case object NoActionToInvalidate extends GameStateError {
 
   override def getMessage = "There is no action to invalidate"
 }
+final case class UnexpectedPlayer (expected: Username, received: Username) extends GameStateError {
+
+  override def getMessage = s"Player ${expected} was expected, but player ${received} was received"
+}
+final case object MatchIsFull extends GameStateError {
+
+  override def getMessage = "Game is full. You cannot connect to this game"
+}
