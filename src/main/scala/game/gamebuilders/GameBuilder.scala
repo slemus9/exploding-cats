@@ -1,10 +1,9 @@
 package game.gamebuilders
 
 import card.domain.Card
-import player.domain.Username
+import player.domain.{Username, Player}
 import game.domain.Game
 import error.GameError
-import player.domain.Player
 
 trait GameBuilder {
 

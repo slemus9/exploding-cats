@@ -39,6 +39,11 @@ final case class WaitPlayerAction (game: Game) extends GameState {
     if (cardDecks(u) contains Defuse) {
       val deck = cardDecks(u) - Defuse
       val newDecks = cardDecks + (u -> deck)
+      val newPlayers = 
+        if (players.currentPlayer.numTurns == 1) players.moveForward
+        else players.updateCurrentPlayer { p =>
+          p.copy(numTurns = p.numTurns - 1)
+        }
       Stream(
         Broadcast(Ok(s"Player ${u.name} has defused the Exploding Cat")),
         SendResponse(SendCards(deck.toList)),
@@ -46,7 +51,7 @@ final case class WaitPlayerAction (game: Game) extends GameState {
           s"Select a number from 0 to ${newDrawPile.size - 1} to insert back the Exploding Cat"
         )),
         UpdateState(ReinsertExplodingCat(Game(
-          players,
+          newPlayers,
           newDrawPile,
           newDecks
         )))
@@ -68,7 +73,11 @@ final case class WaitPlayerAction (game: Game) extends GameState {
   private def onRegularCard [F[_]] (u: Username, card: Card, newDrawPile: CardPile) = {
     val deck = cardDecks(u) + card
     val newDecks = cardDecks + (u -> deck)
-    val newPlayers = players.moveForward
+    val newPlayers = 
+      if (players.currentPlayer.numTurns == 1) players.moveForward
+      else players.updateCurrentPlayer { p =>
+        p.copy(numTurns = p.numTurns - 1)
+      }
     Stream(
       SendResponse(NextCardInPile(card)),
       SendResponse(SendCards(deck.toList)),

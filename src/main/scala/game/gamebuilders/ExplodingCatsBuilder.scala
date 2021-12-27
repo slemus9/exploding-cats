@@ -69,7 +69,9 @@ final object ExplodingCatsBuilder extends GameBuilder {
 
     GameBuilder.GameSetup(
       players.toList,
-      remaining ++ List.fill(n - 1)(ExplodingCat)
+      Random.shuffle(
+        remaining ++ List.fill(n - 1)(ExplodingCat)
+      )
     )
   }
 
