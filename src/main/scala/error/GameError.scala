@@ -4,6 +4,7 @@ import io.circe.DecodingFailure
 import game.gamestate.GameState
 import player.domain.Username
 import game.domain.Command
+import card.domain.Card
 
 sealed trait GameError extends Throwable
 
@@ -74,4 +75,8 @@ final case class PlayerAlreadyConnected (player: Username) extends GameStateErro
 final case class NotThePlayersTurn (expected: Username, received: Username) extends GameStateError {
 
   override def getMessage = s"${received.name} it's not your turn. It's ${expected.name}'s turn"
+}
+final case class PlayerDoesNotHaveCard (expectedCard: Card) extends GameStateError {
+
+  override def getMessage = s"You don't have an $expectedCard card"
 }

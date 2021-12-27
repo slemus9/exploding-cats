@@ -23,8 +23,6 @@ import cats.effect.kernel.Async
 
 object GameRoute {
 
-  type GameStateModifier = PartialFunction[GameState, GameState]
-
   def filterText [F[_]] (
     implicit ae: ApplicativeError[F, Throwable]
   ): Pipe[F, WebSocketFrame, String] =

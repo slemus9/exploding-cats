@@ -83,21 +83,3 @@ final object ExplodingCatsBuilder extends GameBuilder {
     )
   }
 }
-
-// object BuilderTest extends App {
-
-//   import io.circe.syntax._
-
-//   val users = List(
-//     Username.from("user1"),
-//     Username.from("user2"),
-//     Username.from("user3"),
-//     Username.from("user4")
-//   ).sequence
-
-//   val game = users.flatMap(ExplodingCatsBuilder.newGame)
-//   val userJsons = game.map(_.players.map(_.asJson))
-
-//   userJsons.foreach(_.foreach(println))
-//   userJsons.foreach(_.foreach(u => println(u.as[Player])))
-// }

@@ -5,14 +5,19 @@ import error.{GameError, NoActivePlayers}
 import cats.data.NonEmptyList
 
 final case class PlayerSeq private (
-  private val players: Dequeue[Username]
+  private val players: Dequeue[Player]
 ) extends AnyVal {
 
   def size = players.size
 
-  def currentPlayer: Username = 
+  def currentPlayer: Player = 
     players.frontOption.get
   
+  def updateCurrentPlayer (update: Player => Player): PlayerSeq =
+    players.uncons.map { 
+      case (p, ps) => PlayerSeq(update(p) +: ps)
+    }.get
+
   def moveForward: PlayerSeq = players.uncons.map {
     case (p, ps) => PlayerSeq(ps :+ p)
   }.get
@@ -29,7 +34,7 @@ final case class PlayerSeq private (
 
 object PlayerSeq {
 
-  def from (players: List[Username]) = 
+  def from (players: List[Player]) = 
     Either.cond(
       players.size > 0,
       PlayerSeq(Dequeue.fromFoldable(players)),

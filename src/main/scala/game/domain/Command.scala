@@ -12,6 +12,7 @@ import io.circe.Encoder
 import game.gamestate.GameState
 import player.domain.Player
 import game.gamebuilders.GameBuilder
+import scala.concurrent.duration.FiniteDuration
 
 sealed trait Command
 object Command {
@@ -36,6 +37,7 @@ object Command {
       case "Connect"  => Right(Connect)
       case "Ready"    => Right(Ready)
       case "DrawCard" => Right(DrawCard)
+      case "NopeCard" => Right(InvalidateAction)
       case other      => Left(s"Command '$other' does not exists.")
     }
 
@@ -50,6 +52,8 @@ object Command {
   final case class SendResponse (response: ServerResponse) extends ServerCommand
   final case class Broadcast (message: ServerResponse) extends ServerCommand
   final case class DealCards (players: List[GameBuilder.PlayerSetup]) extends ServerCommand
+  final case class StartCountdown (maxWait: FiniteDuration, onFinished: ServerCommand) extends ServerCommand
+  final case object InterruptCountdown extends ServerCommand
   final case object EndConnection extends ServerCommand
 
 
@@ -62,7 +66,7 @@ object Command {
 
   final case object Ready extends PlayerCommand
 
-  final case class InvalidateAction (card: Nope.type) extends PlayerCommand {
+  final case object InvalidateAction extends PlayerCommand {
 
     val name = "InvalidateAction"
   }
@@ -72,7 +76,7 @@ object Command {
 
     val name = "DrawCard"
   }
-  final case class PlayCard (card: ActionCard) extends PlayerActionCommand {
+  final case class PlayCard (card: Card with ActionCard) extends PlayerActionCommand {
 
     val name = "PlayCard"
   }
@@ -86,24 +90,4 @@ object Command {
 
     val name = "Defused"
   }
-
-
-  // object PlayerCmdTestJson extends App {
-
-  //   // import PlayerCommand._
-  //   import io.circe.syntax._
-  //   import io.circe.parser._
-
-  //   val strCmd = 
-  //     """
-  //       |{
-  //       |   "command" : "Explode",
-  //       |   "username" : "Player1"
-  //       |}""".stripMargin.trim
-
-  //   val jsonCmd = parse(strCmd).getOrElse(Json.Null)
-
-  //   println(jsonCmd.as[Ready])
-  // }
-
 }

@@ -6,31 +6,30 @@ import scala.concurrent.duration._
 
 object Main extends IOApp {
 
+  val signalExample = fs2.Stream.eval(
+    SignallingRef[IO, Boolean](false)
+  ).flatMap { signal =>
+    val maxWait = 6
+    val periodic = fs2.Stream
+      .awakeEvery[IO](1.second)
+      .map { d => s"${maxWait - d.toSeconds}s remaining" }
+      .interruptAfter(maxWait.seconds)
+      .interruptWhen(signal) ++
+      fs2.Stream.eval(
+        signal.get
+      ).map { interrBySignal => 
+        if (interrBySignal) "Interrupted By Signal" 
+        else "Finished!!!"
+      }
+      
 
-  val signalExample = for {
-
-    signal <- SignallingRef[IO, Int](0)
+    val update = fs2.Stream.sleep[IO](4.seconds) >> fs2.Stream.eval(
+      signal.set(true)
+    )
     
-    signalUpdates = signal.discrete.evalMap { i => 
-      IO.println(s"Current value of signal: $i") 
-    }
-    
-    updateSignal1 = fs2.Stream.awakeEvery[IO](4.seconds).evalMap { d =>
-      IO.println(s"time1: ${d.toSeconds}s") >> 
-      signal.update(_ + 1)
-    }
-
-    updateSignal2 = fs2.Stream.awakeEvery[IO](7.seconds).evalMap { d =>
-      IO.println(s"time2: ${d.toSeconds}s") >> 
-      signal.update(_ + 1)
-    }
-
-  } yield signalUpdates
-    .concurrently(updateSignal1)
-    .concurrently(updateSignal2)
+    periodic.concurrently(update)
+  }
 
   def run(args: List[String]): IO[ExitCode] = 
-    signalExample.flatMap { updates => 
-      updates.compile.drain as ExitCode.Success
-    }
+    signalExample.evalMap(IO.println).compile.drain as ExitCode.Success
 }

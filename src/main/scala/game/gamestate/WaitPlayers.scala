@@ -9,7 +9,9 @@ import card.domain.{CardPile, CardDeck}
 import error.PlayerNotRegistered
 import cats.ApplicativeError
 import cats.syntax.option._
+import cats.effect.Temporal
 import fs2.Stream
+import player.domain.Player
 
 final case class WaitPlayers (
   builder: GameBuilder, 
@@ -55,7 +57,7 @@ final case class WaitPlayers (
       )),
       { case GameBuilder.GameSetup(playersRaw, cardPile) =>
         
-        val players = playersRaw.map(_.username)
+        val players = playersRaw.map { p => Player(p.username) }
         val drawPile = CardPile(cardPile)
         val cardDecks = Map.from(
           playersRaw.map { case GameBuilder.PlayerSetup(u, cards) =>
@@ -69,10 +71,9 @@ final case class WaitPlayers (
         ) ++ Stream.eval(
           ae.fromEither(PlayerSeq.from(players))
         ).flatMap { playerSeq => 
-            val username = playerSeq.currentPlayer
             val game = Game(playerSeq, drawPile, cardDecks)
             Stream(
-              GameState.sendCurrentPlayer(username),
+              GameState.sendCurrentPlayer(playerSeq),
               UpdateState(WaitPlayerAction(game))
             )
         }
@@ -105,12 +106,12 @@ final case class WaitPlayers (
       PlayerNotRegistered(u)
     )
 
-  def interpret [F[_]] (u: Username, cmd: PlayerCommand) (
+  def interpret [F[_]: Temporal] (u: Username, cmd: PlayerCommand) (
     implicit ae: ApplicativeError[F, Throwable]
   ): Stream[F, ServerCommand] = 
     cmd match {
-      case Connect  => onConnect[F](u)
-      case Ready    => onReady[F](u)
+      case Connect  => onConnect(u)
+      case Ready    => onReady(u)
       case cmd      => GameState.unexpectedCommand[F](u, cmd, this)
     }
 

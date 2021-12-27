@@ -7,7 +7,7 @@ import error.{GameError, PlayerNotRegistered, PlayerAlreadyConnected}
 import game.domain.ServerResponse
 import game.gamestate.GameState
 import cats.{ApplicativeError, Functor}
-import cats.effect.Concurrent
+import cats.effect.Temporal
 import cats.effect.std.Queue
 import cats.syntax.all._
 import game.domain.ServerResponse._
@@ -17,6 +17,9 @@ import game.domain.Command._
 import cats.effect.kernel.Ref
 import io.circe.syntax._
 import player.domain.Player
+import fs2.concurrent.Signal
+import scala.concurrent.duration._
+import fs2.concurrent.SignallingRef
 
 trait GameMatch [F[_]] {
 
@@ -37,21 +40,28 @@ object GameMatch {
 
   case class GameMatchState [F[_]] (
     gameState: GameState,
-    connections: Map[Username, Connection[F]]
+    connections: Map[Username, Connection[F]],
+    interruptCountdown: SignallingRef[F, Boolean]
   )
   object GameMatchState {
 
-    def newState [F[_]] (builder: GameBuilder) = GameMatchState(
-      GameState.initialState(builder),
-      Map.empty[Username, Connection[F]]
-    )
+    def newState [F[_]: Temporal] (builder: GameBuilder) = 
+      SignallingRef[F, Boolean](false).map { signal =>         
+        GameMatchState(
+          GameState.initialState(builder),
+          Map.empty[Username, Connection[F]],
+          signal
+        )
+      }
   }
 
-  private def emptyMatchState [F[_]: Concurrent] (builder: GameBuilder) = Ref[F].of(
-    GameMatchState.newState[F](builder)
-  )
+  private def emptyMatchState [F[_]: Temporal] (builder: GameBuilder) = 
+    GameMatchState.newState(builder).flatMap(Ref[F].of)
+  // Ref[F].of(
+  //   GameMatchState.newState[F](builder)
+  // )
 
-  def create [F[_]: Concurrent] (builder: GameBuilder): F[GameMatch[F]] = 
+  def create [F[_]: Temporal] (builder: GameBuilder): F[GameMatch[F]] = 
     emptyMatchState(builder).map { stateRef => new GameMatch[F] {
 
       private def getConnections = stateRef.get.map(_.connections)
@@ -122,31 +132,57 @@ object GameMatch {
           )
         }
 
+      private def getInterruptSignal = stateRef.get.map(_.interruptCountdown)
+
+      private def setInterruptSignal (b: Boolean) =
+        getInterruptSignal.flatMap(_.set(b))
+
+      private def awaitThenExecute (
+        maxWait: FiniteDuration,
+        onFinished: ServerCommand
+      ): Stream[F, ServerCommand] = 
+        Stream.eval(getInterruptSignal).flatMap { signal => 
+          
+          Stream
+            .awakeEvery[F](1.second)
+            .map { d => 
+              Broadcast(Ok(s"${maxWait.toSeconds - d.toSeconds}s remaining")) 
+            }
+            .interruptWhen(signal)
+            .interruptAfter(maxWait) ++
+            Stream.eval(signal.get).flatMap { interrupted => 
+              if (interrupted) Stream.empty
+              else Stream(onFinished)
+            }
+        }
+
+      private def resolve (
+        u: Username, 
+        cmd: ServerCommand, 
+      ): Stream[F, Unit] = {
+
+        cmd match {
+          case UpdateState(updated) => Stream.eval(updateState(updated))
+          case SendResponse(res) => Stream.eval(sendResponse(u, res))
+          case Broadcast(message) => broadcast(message)
+          case DealCards(players) => sendResponse(
+            players.map { case GameBuilder.PlayerSetup(u, cardDeck) => u -> PlayerDeck(cardDeck) }
+          )
+          case StartCountdown(maxWait, onFinished) => awaitThenExecute(maxWait, onFinished).flatMap { cmd => 
+            resolve(u, cmd) 
+          } >> Stream.eval(setInterruptSignal(false))
+          case InterruptCountdown => Stream.eval(setInterruptSignal(true))
+          case EndConnection => Stream.eval(endConnection(u))
+        }
+      }
+      
 
       def processCommands (u: Username) (
         implicit ae: ApplicativeError[F, Throwable]
       ): Pipe[F, (PlayerCommand, GameState), Unit] = { in => 
 
-        def interpret (cmd: PlayerCommand, s: GameState) =
-          s.interpret(u, cmd)
-
         in.flatMap { case (cmd, s) => s.interpret(u, cmd) }.debug()
-          .flatMap {
-            case UpdateState(updated) => Stream.eval(updateState(updated))
-            case SendResponse(res) => Stream.eval(sendResponse(u, res))
-            case Broadcast(message) => broadcast(message)
-            case DealCards(players) => sendResponse(
-              players.map { case GameBuilder.PlayerSetup(u, cardDeck) => u -> PlayerDeck(cardDeck) }
-            )
-            case EndConnection => Stream.eval(endConnection(u))
-          }
-          // .handleError(println)
-          .handleErrorWith { t =>
-            Stream.eval(sendResponse(
-              u,
-              UnexpectedError(t)
-            ))
-          }
+          .flatMap { cmd => resolve(u, cmd) }
       }
     }}
 }
