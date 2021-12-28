@@ -1,7 +1,7 @@
 package player
 
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.EitherValues
 import player.domain.Username
 import player.domain.Player
