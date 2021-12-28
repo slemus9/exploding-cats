@@ -1,8 +1,9 @@
 package player.domain
 
 import cats.collections.Dequeue
-import error.{GameError, NoActivePlayers}
+import error.{GameError, NoActivePlayers, ShouldNotBeEmpty}
 import cats.data.NonEmptyList
+import cats.syntax.either._
 
 final case class PlayerSeq private (
   private val players: Dequeue[Player]
@@ -27,9 +28,12 @@ final case class PlayerSeq private (
   }.get
 
   def eliminateCurrentPlayer: Either[GameError, PlayerSeq] = 
-    players.uncons
-      .map { case (_, dq) => PlayerSeq(dq) }    
-      .toRight(NoActivePlayers)
+    if (size > 1)
+      players.uncons
+        .map { case (_, dq) => PlayerSeq(dq) }    
+        .toRight(NoActivePlayers)
+    else ShouldNotBeEmpty.asLeft
+
 }    
 
 object PlayerSeq {
