@@ -1,7 +1,5 @@
 package gamebuilders
 
-package gamebuilders
-
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import player.domain.Username

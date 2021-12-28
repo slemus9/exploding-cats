@@ -5,6 +5,7 @@ version := "1.0"
 scalaVersion := "2.13.6"
 
 val scalaTestVersion = "3.2.10"
+val catsEffectsTestingVersion = "1.4.0"
 val circeVersion = "0.14.1"
 val catsVersion = "2.3.0"
 val catsCollectionsVersion = "0.9.0"
@@ -30,5 +31,6 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-circe" % http4sVersion,
 
   "org.scalactic" %% "scalactic" % scalaTestVersion,
-  "org.scalatest" %% "scalatest" % scalaTestVersion % Test
+  "org.scalatest" %% "scalatest" % scalaTestVersion % Test,
+  "org.typelevel" %% "cats-effect-testing-scalatest" % catsEffectsTestingVersion % Test
 )

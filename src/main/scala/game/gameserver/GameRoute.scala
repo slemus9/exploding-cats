@@ -13,7 +13,6 @@ import cats.effect.kernel.Ref
 import error.{GameError, FrameIsNotText, UnexpectedGameState}
 import io.circe.syntax._
 import io.circe.parser._
-import io.circe.{Json, Decoder, Encoder}
 import player.domain.Username
 import fs2.{Stream, Pipe}
 import fs2.concurrent.SignallingRef
@@ -23,7 +22,7 @@ import cats.effect.kernel.Async
 
 object GameRoute {
 
-  def filterText [F[_]] (
+  private def filterText [F[_]] (
     implicit ae: ApplicativeError[F, Throwable]
   ): Pipe[F, WebSocketFrame, String] =
     _.evalMap {
@@ -31,23 +30,19 @@ object GameRoute {
       case _            => ae.raiseError[String](FrameIsNotText)
     }
 
-  def decodeCommands [F[_]] (
+  private def decodeCommands [F[_]] (
     implicit ae: ApplicativeError[F, Throwable]
   ): Pipe[F, String, PlayerCommand] =
     _.evalMap { s => ae.fromEither(
       parse(s).flatMap(_.as[PlayerCommand])
     )}
   
-  def buildUsername [F[_]] (username: String) (
+  private def buildUsername [F[_]] (username: String) (
     implicit ae: ApplicativeError[F, Throwable]
   ) =
      ae.fromEither(Username.from(username))
 
-  def welcome [F[_]]: Pipe[F, Username, WebSocketFrame] =
-    _.map { u => Text(s"Welcome to Exploding Kittens ${u.name}!") }
-  
-
-  def processPlayerInput [F[_]] (
+  private def processPlayerInput [F[_]] (
     usernameStr: String,
     q: Queue[F,Option[WebSocketFrame]],
     gameMatch: GameMatch[F]
@@ -65,7 +60,6 @@ object GameRoute {
         .through(decodeCommands)
         .through(withState)
         .through(gameMatch.processCommands(u))
-        .handleError(t => println(t))
     } yield unit
   }
   
