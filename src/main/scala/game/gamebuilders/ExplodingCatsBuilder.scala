@@ -4,12 +4,7 @@ import scala.util.Random
 
 import game.domain.Game
 import player.domain.{Username, Player, PlayerSeq}
-import card.domain.{
-  Card, CatCard1, CatCard2, CatCard3, CatCard4, CatCard5,
-  Nope, Skip, Favor, Shuffle, SeeTheFuture, Attack,
-  Defuse, ExplodingCat
-}
-
+import card.domain._
 import cats.syntax.all._
 import error.{GameError, PlayersOutOfBounds}
 import cats.data.NonEmptyList

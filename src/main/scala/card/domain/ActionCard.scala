@@ -38,7 +38,14 @@ final case object Skip extends Card with ActionCard {
   val description = "End your turn without drawing a card."
 
   def execute [F[_]] (game: Game): Stream[F,ServerCommand] = {
-    val newPlayers = game.players.moveForward
+    val players = game.players
+    val currPlayer = players.currentPlayer
+    val turns = currPlayer.numTurns
+    val newPlayers = 
+      if (turns == 1) players.moveForward
+      else players.updateCurrentPlayer(_.copy(
+        numTurns = turns - 1
+      ))
     Stream(
       UpdateState(WaitPlayerAction(
         game.copy(players = newPlayers)

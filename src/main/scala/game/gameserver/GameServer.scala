@@ -15,6 +15,7 @@ import cats.effect.kernel.Ref
 import cats.Functor
 import game.gamebuilders.GameBuilder
 import cats.effect.kernel.Async
+import game.gamebuilders.DemoBuilder
 
 object GameServer extends IOApp {
 
@@ -26,7 +27,7 @@ object GameServer extends IOApp {
 
   def run (args: List[String]): IO[ExitCode] = for {
 
-    gameMatch <- GameMatch.create[IO](ExplodingCatsBuilder)
+    gameMatch <- GameMatch.create[IO](DemoBuilder)
 
     _     <- BlazeServerBuilder[IO](ExecutionContext.global)
       .bindHttp(port = 9002, host = "localhost")

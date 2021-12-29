@@ -33,7 +33,7 @@ final case class ReinsertExplodingCat (
             newDrawPile,
             cardDecks
           ))),
-          SendResponse(CurrentPlayer(newPlayers))
+          Broadcast(CurrentPlayer(newPlayers))
         )  
       )
     }

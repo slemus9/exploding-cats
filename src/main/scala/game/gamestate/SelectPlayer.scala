@@ -22,7 +22,7 @@ final case class SelectPlayer (
       if (sender == other) GameState.unexpectedError(
         PlayerSelfSelection
       ) else Stream(
-        Broadcast(Ok(s"Player ${sender} has picked ${other}")),
+        Broadcast(Ok(s"Player ${sender.name} has picked ${other.name}")),
         SendResponseTo(other, Ok(s"You have to choose a card to give it up to ${sender.name}")),
         SendResponseTo(other, SendCards(game.cardDecks(other).toList)),
         UpdateState(AskCard(

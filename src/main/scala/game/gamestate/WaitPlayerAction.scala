@@ -59,18 +59,20 @@ final case class WaitPlayerAction (game: Game) extends GameState {
     } else Stream.eval(killCurrentPlayer).flatMap { newPlayers =>   
 
       val newGame = Game(newPlayers, newDrawPile, cardDecks - u)
-      val nextState = 
-        if (newPlayers.size == 1) GameFinished(newGame)
-        else WaitPlayerAction(newGame)
+      val next = 
+        if (newPlayers.size == 1) Stream(
+          Broadcast(GameHasEnded(newPlayers)),
+          UpdateState(GameFinished(newGame))
+        )
+        else Stream(
+          Broadcast(CurrentPlayer(newPlayers)),
+          UpdateState(WaitPlayerAction(newGame))
+        )
 
 
       Stream(
         Broadcast(Ok(s"Player ${u.name} exploded!")),
-        UpdateState(nextState),
-        SendResponse(CurrentPlayer(
-          newPlayers
-        ))
-      )
+      ) ++ next
     }
 
 
@@ -110,12 +112,14 @@ final case class WaitPlayerAction (game: Game) extends GameState {
 
 
 
-  def onPlayCard [F[_]: Temporal] (u: Username, card: Card with ActionCard) (
+  def onPlayCard [F[_]: Temporal] (u: Username, card: Card with ActionCard, fromNopeCard: Boolean = false) (
     implicit ae: ApplicativeError[F,Throwable]
   ): Stream[F, ServerCommand] = 
     if (cardDecks(u) contains card) {
 
-      val newDeck = cardDecks(u) - card
+      val newDeck = 
+        if (fromNopeCard) cardDecks(u) - card - Nope
+        else cardDecks(u) - card
       val newDecks = cardDecks + (u -> newDeck)
       Stream(
         Broadcast(Ok(s"Player ${u.name} wants to play ${card.name}")),
@@ -150,7 +154,7 @@ final case class WaitPlayerAction (game: Game) extends GameState {
       invalidated.map { card => 
         Stream(
           Broadcast(Ok(s"Player ${u.name} used a Nope card"))
-        ) ++ onPlayCard(u, card)
+        ) ++ onPlayCard(u, card, true)
       }.getOrElse(
         GameState.unexpectedError(
           NoActionToInvalidate
