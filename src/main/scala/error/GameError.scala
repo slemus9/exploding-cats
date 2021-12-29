@@ -91,3 +91,7 @@ final case object MatchIsFull extends GameStateError {
 
   override def getMessage = "Game is full. You cannot connect to this game"
 }
+final case object PlayerSelfSelection extends GameStateError {
+
+  override def getMessage = "You cannot select yourself"
+}

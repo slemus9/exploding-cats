@@ -127,7 +127,11 @@ final case class WaitPlayerAction (game: Game) extends GameState {
             SendResponse(SendCards(newDeck.toList)),
             Broadcast(Ok(s"Player ${u.name} has played ${card.name}"))
           ) ++ card.execute(game.copy(
-            cardDecks = newDecks
+            cardDecks = newDecks,
+            players = game.players.updateCurrentPlayer(_.copy(
+              invalidatedAction = None
+            )
+            )
           ))
         )
       )

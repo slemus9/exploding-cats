@@ -16,6 +16,7 @@ import scala.concurrent.duration.FiniteDuration
 import fs2.{Stream, Pure}
 import card.domain.Attack
 import card.domain.SeeTheFuture
+import card.domain.CatCard5
 
 sealed trait Command
 object Command {
@@ -39,7 +40,7 @@ object Command {
     def apply(c: HCursor): Decoder.Result[SendCard] = 
       for {
         _ <- decodeCommandName(c, "SendCard")
-        c <- c.downField("card").as[Card with ActionCard]
+        c <- c.downField("card").as[Card]
       } yield SendCard(c)
   }
 
@@ -112,14 +113,15 @@ object Command {
   final case class PlayCard (card: Card with ActionCard) extends PlayerActionCommand
   final case class InsertExplodingCat (index: Int) extends PlayerActionCommand
   final case class SendCard (card: Card) extends PlayerActionCommand
-  final case class ChoosePlayer (player: Username) extends PlayerActionCommand
+  final case class ChoosePlayer (username: Username) extends PlayerActionCommand
 }
 
 object TestJson extends App {
 
   val playCard = Encoder[Command.PlayerCommand].apply(
-    Command.PlayCard(SeeTheFuture)
+    Command.SendCard(CatCard5)
   )
 
   println(playCard)
+  println(playCard.as[Command.PlayerCommand])
 }

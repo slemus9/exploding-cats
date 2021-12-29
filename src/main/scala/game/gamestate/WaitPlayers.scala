@@ -73,7 +73,7 @@ final case class WaitPlayers (
         ).flatMap { playerSeq => 
             val game = Game(playerSeq, drawPile, cardDecks)
             Stream(
-              SendResponse(CurrentPlayer(playerSeq)),
+              Broadcast(CurrentPlayer(playerSeq)),
               UpdateState(WaitPlayerAction(game))
             )
         }

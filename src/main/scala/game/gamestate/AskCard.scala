@@ -36,7 +36,8 @@ final case class AskCard (
             players,
             cardPile,
             newDecks
-          )))
+          ))),
+          Broadcast(CurrentPlayer(players))
         )
       } else GameState.unexpectedError(
         PlayerDoesNotHaveCard(card)

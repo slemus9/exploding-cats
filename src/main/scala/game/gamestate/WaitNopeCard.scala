@@ -38,7 +38,7 @@ final case class WaitNopeCard (
       Stream(
         InterruptCountdown,
         Broadcast(Ok(s"Player ${u.name} used a Nope card")),
-        SendResponse(CurrentPlayer(newPlayers)),
+        Broadcast(CurrentPlayer(newPlayers)),
         UpdateState(WaitPlayerAction(
           Game(newPlayers, drawPile, newDecks)
         ))
