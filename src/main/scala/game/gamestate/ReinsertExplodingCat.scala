@@ -8,6 +8,7 @@ import game.domain.ServerResponse._
 import player.domain.Username
 import card.domain.ExplodingCat
 import fs2.Stream
+import error.NotThePlayersTurn
 
 final case class ReinsertExplodingCat (
   game: Game
@@ -17,19 +18,26 @@ final case class ReinsertExplodingCat (
 
   private def onReinsert [F[_]] (u: Username, index: Int): Stream[F, ServerCommand] = {
     
-    val newPlayers = players.moveForward
-    drawPile.insertExplodingCat(index)(ExplodingCat).fold(
-      GameState.unexpectedError(_),      
-      newDrawPile => Stream(
-        Broadcast(Ok(s"${u.name} has inserted the Exploding Cat back into the pile")),
-        UpdateState(WaitPlayerAction(Game(
-          newPlayers,
-          newDrawPile,
-          cardDecks
-        ))),
-        SendResponse(CurrentPlayer(newPlayers))
-      )  
-    )
+    val currUsername = players.currentPlayer.username
+    if (u != currUsername) GameState.unexpectedError(
+      NotThePlayersTurn(currUsername, u)
+    ) else {
+
+      val newPlayers = players.moveForward
+      drawPile.insertExplodingCat(index)(ExplodingCat).fold(
+        GameState.unexpectedError(_),      
+        newDrawPile => Stream(
+          Broadcast(Ok(s"${u.name} has inserted the Exploding Cat back into the pile")),
+          UpdateState(WaitPlayerAction(Game(
+            newPlayers,
+            newDrawPile,
+            cardDecks
+          ))),
+          SendResponse(CurrentPlayer(newPlayers))
+        )  
+      )
+    }
+
   }
 
   def interpret [F[_]: Temporal] (u: Username, cmd: PlayerCommand) (

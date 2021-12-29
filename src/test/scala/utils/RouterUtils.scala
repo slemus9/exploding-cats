@@ -105,4 +105,7 @@ private def filterText [F[_]] (
 
   def playCard (card: Card with ActionCard) =
     Stream(encode(PlayCard(card)))
+
+  def reinsertExplodingCat (index: Int) = 
+    Stream(encode(InsertExplodingCat(index)))
 }

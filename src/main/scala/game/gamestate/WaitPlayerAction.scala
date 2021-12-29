@@ -40,7 +40,7 @@ final case class WaitPlayerAction (game: Game) extends GameState {
       val deck = cardDecks(u) - Defuse
       val newDecks = cardDecks + (u -> deck)
       val newPlayers = 
-        if (players.currentPlayer.numTurns == 1) players.moveForward
+        if (players.currentPlayer.numTurns == 1) players
         else players.updateCurrentPlayer { p =>
           p.copy(numTurns = p.numTurns - 1)
         }
@@ -60,8 +60,8 @@ final case class WaitPlayerAction (game: Game) extends GameState {
 
       val newGame = Game(newPlayers, newDrawPile, cardDecks - u)
       val nextState = 
-        if (newPlayers.size == 1) WaitPlayerAction(newGame)
-        else GameFinished(newGame)
+        if (newPlayers.size == 1) GameFinished(newGame)
+        else WaitPlayerAction(newGame)
 
 
       Stream(
