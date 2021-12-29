@@ -108,4 +108,6 @@ private def filterText [F[_]] (
 
   def reinsertExplodingCat (index: Int) = 
     Stream(encode(InsertExplodingCat(index)))
+
+  def invalidateAction = Stream(encode(InvalidateAction))
 }
