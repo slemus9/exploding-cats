@@ -32,82 +32,41 @@ class WaitPlayersSpec extends AsyncFreeSpec
     case Right(u) => u
   }
 
-  private def filterText [F[_]] (
-    implicit ae: ApplicativeError[F, Throwable]
-  ): Pipe[F, WebSocketFrame, String] =
-    _.evalMap {
-      case Text(cmd, _) => ae.pure(cmd)
-      case _            => ae.raiseError[String](FrameIsNotText)
-    }
-
-  private def decodeCommands [F[_]] (
-    implicit ae: ApplicativeError[F, Throwable]
-  ): Pipe[F, String, PlayerCommand] =
-    _.evalMap { s => ae.fromEither(
-      parse(s).flatMap(_.as[PlayerCommand])
-    )}
-
-  private def processPlayerInput /* [F[_]] */ (
-    u: Username,
-    q: Queue[IO,Option[WebSocketFrame]],
-    gameMatch: GameMatch[IO]
-  ) (
-    // implicit ae: ApplicativeError[F, Throwable]
-  ): Pipe[IO, WebSocketFrame, Unit] = { in =>
-
-    def withState: Pipe[IO, PlayerCommand, (PlayerCommand, GameState)] =
-      _.evalMap { cmd => gameMatch.getState.map(cmd -> _) }
-
-    for {
-      _     <- Stream.eval(gameMatch.addConnection(u, q))
-      unit  <- in.through(filterText)
-        .through(decodeCommands)
-        .through(withState)
-        .through(gameMatch.processCommands(u))
-    } yield unit
-  }
-
   "WaitPlayers" - {
 
 
     "start match until all players are ready" in {
   
-      def ready (
-        u: Username,
-        delay: FiniteDuration
-      ) = 
-        Stream.sleep[IO](delay).flatMap { _ =>
-          Stream.eval(IO.println(s"${u.name} getting ready"))  
-        }.as(Text(""""Ready""""))
-  
-      def connect (
-        u: Username,
-        delay: FiniteDuration
-      ) = 
-        Stream.sleep[IO](delay).flatMap { _ => 
-          Stream.eval(IO.println(s"Connecting ${u.name}"))  
-        }.as(Text(""""Connect""""))
+      import utils.RouterUtils._
 
-      val List(u1, u2, u3) = players
+      val u1 = "player1"
+      val u2 = "player2"
+      val u3 = "player3"
 
       val res = for {
         gameMatch <- GameMatch.create[IO](ExplodingCatsBuilder)
-        q1 <- Queue.unbounded[IO, Option[WebSocketFrame]]
-        q2 <- Queue.unbounded[IO, Option[WebSocketFrame]]
-        q3 <- Queue.unbounded[IO, Option[WebSocketFrame]]
+        qs <- addConnections(List(u1, u2, u3), gameMatch)
+        List(q1, q2, q3) = qs
 
         pipe1 = processPlayerInput(u1, q1, gameMatch)
         pipe2 = processPlayerInput(u2, q2, gameMatch)
         pipe3 = processPlayerInput(u3, q3, gameMatch)
-        val c1 = connect(u1, 1.seconds).append(ready(u1, 6.seconds)).through(pipe1)
-        val c2 = connect(u2, 2.seconds).append(ready(u2, 5.seconds)).through(pipe2)
-        val c3 = connect(u3, 3.seconds).append(ready(u3, 4.seconds)).through(pipe3)
+        out1 = responseStream(q1)
+        out2 = responseStream(q2)
+        out3 = responseStream(q3)
+        out = out1 merge out2 merge out3
 
-        process = c1 merge c2 merge c3
+        c1 = connect.through(pipe1)
+        c2 = connect.through(pipe2)
+        c3 = connect.through(pipe3)
+        connections = c1 ++ c2 ++ c3
 
-        _ <- process.compile.drain
+        s1 = readyDelayed[IO](2.seconds).through(pipe1)
+        s2 = readyDelayed[IO](1.seconds).through(pipe2)
+        s3 = readyDelayed[IO](3.seconds).through(pipe3)
+        process = connections ++ (s1 merge s2 merge s3)
 
-
+        _ <- process.concurrently(out).compile.drain
 
       } yield gameMatch
 
@@ -119,7 +78,7 @@ class WaitPlayersSpec extends AsyncFreeSpec
             game.cardDecks.keySet.contains(p)  
           }
         )
-        case other => assert(false)
+        case other => assert(false, "State should be WaitPlayerAction")
       }
     }
   }

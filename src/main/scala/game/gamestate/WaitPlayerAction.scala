@@ -56,14 +56,17 @@ final case class WaitPlayerAction (game: Game) extends GameState {
           newDecks
         )))
       )
-    } else Stream.eval(killCurrentPlayer).flatMap { newPlayers =>       
+    } else Stream.eval(killCurrentPlayer).flatMap { newPlayers =>   
+
+      val newGame = Game(newPlayers, newDrawPile, cardDecks - u)
+      val nextState = 
+        if (newPlayers.size == 1) WaitPlayerAction(newGame)
+        else GameFinished(newGame)
+
+
       Stream(
         Broadcast(Ok(s"Player ${u.name} exploded!")),
-        UpdateState(WaitPlayerAction(Game(
-          newPlayers,
-          newDrawPile,
-          cardDecks - u
-        ))),
+        UpdateState(nextState),
         SendResponse(CurrentPlayer(
           newPlayers
         ))
@@ -87,7 +90,7 @@ final case class WaitPlayerAction (game: Game) extends GameState {
         newDrawPile,
         newDecks
       ))),
-      SendResponse(CurrentPlayer(
+      Broadcast(CurrentPlayer(
         newPlayers
       ))
     )
@@ -97,16 +100,12 @@ final case class WaitPlayerAction (game: Game) extends GameState {
     implicit ae: ApplicativeError[F,Throwable]
   ): Stream[F, ServerCommand] = {
 
-    val currUsername = players.currentPlayer.username
-    if (u != currUsername) GameState.unexpectedError(
-      NotThePlayersTurn(currUsername, u)
-    )
-    else Stream
+    Stream
       .eval(popTopCard)
       .flatMap { case (card, newDrawPile) => 
         if (card == ExplodingCat) onExplodingCat(u, newDrawPile)
         else onRegularCard(u, card, newDrawPile)
-      }
+      } 
   }
 
 
@@ -168,9 +167,16 @@ final case class WaitPlayerAction (game: Game) extends GameState {
       case cmd              => GameState.unexpectedCommand(u, cmd, this)
     }
 
+    val currUsername = players.currentPlayer.username
+
+
     Stream.eval(
       game.validatePlayerRegistration(u)
-    ) >> resolve
+    ) >> (
+      if (u != currUsername) GameState.unexpectedError(
+        NotThePlayersTurn(currUsername, u)
+      ) else resolve
+    )
   }
   
 }

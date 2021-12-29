@@ -43,7 +43,7 @@ final case object Skip extends Card with ActionCard {
       UpdateState(WaitPlayerAction(
         game.copy(players = newPlayers)
       )),
-      SendResponse(CurrentPlayer(newPlayers))
+      Broadcast(CurrentPlayer(newPlayers))
     )
   } 
 }
@@ -71,7 +71,7 @@ final case object Shuffle extends Card with ActionCard {
     UpdateState(WaitPlayerAction(
       game.copy(drawPile = game.drawPile.shuffle)
     )),
-    SendResponse(CurrentPlayer(
+    Broadcast(CurrentPlayer(
       game.players
     ))
   )
@@ -87,7 +87,7 @@ final case object SeeTheFuture extends Card with ActionCard {
       game.drawPile.viewTop(3)
     )),
     UpdateState(WaitPlayerAction(game)),
-    SendResponse(CurrentPlayer(
+    Broadcast(CurrentPlayer(
       game.players
     ))
   )
@@ -106,7 +106,7 @@ final case object Attack extends Card with ActionCard {
       UpdateState(WaitPlayerAction(
         game.copy(players = newPlayers)
       )),
-      SendResponse(CurrentPlayer(newPlayers))
+      Broadcast(CurrentPlayer(newPlayers))
     )
   }
 }

@@ -21,8 +21,14 @@ object ServerResponse {
     case res: Ok => res.asJson
     case res: UnexpectedError => res.asJson
     case res: SendCards => res.asJson
-    case CurrentPlayer(players) => 
-      Ok(s"It's ${players.currentPlayer.username.name}'s turn!").asJson
+    case CurrentPlayer(players) => {
+      val currPlayer = players.currentPlayer.username.name
+      Ok(s"It's $currPlayer's turn!").asJson
+    }
+    case GameHasEnded(players) => {
+      val winner = players.currentPlayer.username.name
+      Ok(s"Game has ended. Player $winner won!").asJson
+    }
   }
 
   final case object GameIsFull extends ServerResponse
@@ -30,4 +36,5 @@ object ServerResponse {
   final case class UnexpectedError (t: Throwable) extends ServerResponse
   final case class SendCards (cards: List[Card]) extends ServerResponse
   final case class CurrentPlayer (players: PlayerSeq) extends ServerResponse
+  final case class GameHasEnded (players: PlayerSeq) extends ServerResponse
 }

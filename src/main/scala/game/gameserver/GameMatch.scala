@@ -191,6 +191,7 @@ object GameMatch {
 
         in.flatMap { case (cmd, s) => s.interpret(u, cmd) }.debug()
           .flatMap { cmd => resolve(u, cmd) }
+          .handleError(t => t.printStackTrace())
       }
     }}
 }
